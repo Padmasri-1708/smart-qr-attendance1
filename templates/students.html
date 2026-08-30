@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+
+    <title>Registered Students</title>
+
+    <style>
+
+        body {
+            font-family: Arial;
+            background: linear-gradient(135deg, #2196f3, #7b1fa2);
+            margin: 0;
+            padding: 40px;
+        }
+
+        .container {
+            width: 90%;
+            margin: auto;
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 5px 20px #555;
+        }
+
+        h1 {
+            text-align: center;
+            color: #1976d2;
+        }
+
+        .count {
+            text-align: center;
+            font-size: 18px;
+            margin-bottom: 25px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th {
+            background: #1976d2;
+            color: white;
+            padding: 14px;
+        }
+
+        td {
+            padding: 12px;
+            text-align: center;
+            border-bottom: 1px solid #ddd;
+        }
+
+        tr:hover {
+            background: #f1f8ff;
+        }
+
+        .back {
+            display: inline-block;
+            margin-top: 25px;
+            padding: 10px 20px;
+            background: #1976d2;
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+        }
+
+    </style>
+
+</head>
+
+<body>
+
+<div class="container">
+
+    <h1>🎓 Registered Students</h1>
+
+    <div class="count">
+
+        Total Students:
+        <b>{{ students|length }}</b>
+
+    </div>
+
+
+    {% if students %}
+
+    <table>
+
+        <thead>
+
+            <tr>
+
+                <th>S.No</th>
+                <th>Roll No</th>
+                <th>Name</th>
+                <th>Username</th>
+                <th>Department</th>
+                <th>Year</th>
+
+            </tr>
+
+        </thead>
+
+        <tbody>
+
+            {% for student in students %}
+
+            <tr>
+
+                <td>{{ loop.index }}</td>
+
+                <td>
+                    <b>{{ student.roll_no }}</b>
+                </td>
+
+                <td>
+                    {{ student.name }}
+                </td>
+
+                <td>
+                    {{ student.username }}
+                </td>
+
+                <td>
+                    {{ student.department }}
+                </td>
+
+                <td>
+                    {{ student.year }}
+                </td>
+
+            </tr>
+
+            {% endfor %}
+
+        </tbody>
+
+    </table>
+
+    {% else %}
+
+        <h3 style="text-align:center;">
+            No students registered yet.
+        </h3>
+
+    {% endif %}
+
+
+    <a href="/dashboard" class="back">
+        ← Back to Dashboard
+    </a>
+
+</div>
+
+</body>
+
+</html>

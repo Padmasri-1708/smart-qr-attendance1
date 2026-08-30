@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+
+    <title>Attendance QR Code</title>
+
+    <!-- QR Code JavaScript Library -->
+    <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+
+    <style>
+
+        body {
+            font-family: Arial;
+            text-align: center;
+            background: #f5f5f5;
+            padding: 30px;
+        }
+
+        .box {
+            background: white;
+            width: 500px;
+            margin: auto;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 2px 10px #ccc;
+        }
+
+        #qrcode {
+            margin: 25px auto;
+            width: 300px;
+            padding:15px;
+            background:white;
+        }
+
+        button {
+            padding: 12px 25px;
+            background: #1976d2;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+        }
+
+    </style>
+
+</head>
+
+<body>
+
+<div class="box">
+
+    <h1>Attendance QR Code</h1>
+
+    <p>
+        <b>Date:</b> {{ date }}
+    </p>
+
+    <p>
+        <b>Time:</b> {{ time }}
+    </p>
+
+    <!-- QR CODE WILL APPEAR HERE -->
+
+    <div id="qrcode"></div>
+
+    <p>
+        Scan this QR code to mark attendance
+    </p>
+
+    <button onclick="location.reload()">
+        Generate New QR
+    </button>
+
+</div>
+
+
+<script>
+
+    // Data received from Flask
+
+    const qrData = "{{ qr_data }}";
+
+    console.log("QR Data:", qrData);
+
+
+    // Generate QR code
+
+    new QRCode(
+        document.getElementById("qrcode"),
+        {
+            text: qrData,
+            width: 300,
+            height: 300,
+            colorDark:"#000000",
+            colorLight:"#ffffff",
+            correctLevel:QRCode.CorrectLevel.H
+        }
+    );
+
+</script>
+
+</body>
+
+</html>

@@ -1,0 +1,484 @@
+```html
+<!DOCTYPE html>
+<html>
+
+<head>
+
+    <title>Admin Dashboard - Smart QR Attendance</title>
+
+    <style>
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #f4f7fb;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #1565c0, #7b1fa2);
+            color: white;
+            padding: 25px;
+            text-align: center;
+        }
+
+        .header h1 {
+            margin: 0;
+        }
+
+        .header p {
+            margin: 8px;
+        }
+
+        .container {
+            width: 92%;
+            margin: 30px auto;
+        }
+
+        .cards {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .card {
+            width: 220px;
+            padding: 25px;
+            border-radius: 15px;
+            color: white;
+            text-align: center;
+            box-shadow: 0 5px 15px #ccc;
+        }
+
+        .card h2 {
+            font-size: 35px;
+            margin: 10px;
+        }
+
+        .blue {
+            background: #2196f3;
+        }
+
+        .green {
+            background: #2e7d32;
+        }
+
+        .red {
+            background: #e53935;
+        }
+
+        .purple {
+            background: #8e24aa;
+        }
+
+        .section {
+            background: white;
+            margin-top: 30px;
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 3px 12px #ddd;
+            overflow-x: auto;
+        }
+
+        .section h2 {
+            margin-top: 0;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 650px;
+        }
+
+        th {
+            background: #1976d2;
+            color: white;
+            padding: 12px;
+        }
+
+        td {
+            padding: 12px;
+            text-align: center;
+            border-bottom: 1px solid #ddd;
+        }
+
+        tr:hover {
+            background: #f1f8ff;
+        }
+
+        .present {
+            color: green;
+            font-weight: bold;
+        }
+
+        .absent {
+            color: red;
+            font-weight: bold;
+        }
+
+        .buttons {
+            text-align: center;
+            margin-top: 30px;
+            margin-bottom: 30px;
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 12px 20px;
+            margin: 5px;
+            background: #1976d2;
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            transition: 0.3s;
+        }
+
+        .btn:hover {
+            opacity: 0.85;
+            transform: translateY(-2px);
+        }
+
+        .register-btn {
+            background: #2e7d32;
+        }
+
+        .qr-btn {
+            background: #8e24aa;
+        }
+
+        .history-btn {
+            background: #1565c0;
+        }
+
+        .red-btn {
+            background: #e53935;
+        }
+
+        .empty {
+            text-align: center;
+            padding: 20px;
+            color: #777;
+        }
+
+        @media (max-width: 600px) {
+
+            .container {
+                width: 96%;
+            }
+
+            .card {
+                width: 100%;
+            }
+
+            .section {
+                padding: 15px;
+            }
+
+            .btn {
+                display: block;
+                margin: 10px auto;
+                max-width: 300px;
+            }
+
+        }
+
+    </style>
+
+</head>
+
+
+<body>
+
+
+<!-- =====================================================
+     HEADER
+===================================================== -->
+
+<div class="header">
+
+    <h1>🎓 Smart QR Attendance</h1>
+
+    <p>Admin Dashboard</p>
+
+</div>
+
+
+<div class="container">
+
+
+<!-- =====================================================
+     SUMMARY CARDS
+===================================================== -->
+
+<div class="cards">
+
+
+    <div class="card blue">
+
+        <h3>👨‍🎓 Total Students</h3>
+
+        <h2>{{ total_students }}</h2>
+
+    </div>
+
+
+    <div class="card green">
+
+        <h3>✅ Present Today</h3>
+
+        <h2>{{ present_today }}</h2>
+
+    </div>
+
+
+    <div class="card red">
+
+        <h3>❌ Absent Today</h3>
+
+        <h2>{{ absent_today }}</h2>
+
+    </div>
+
+
+    <div class="card purple">
+
+        <h3>📅 Date</h3>
+
+        <h2>
+            {{ records[0].attendance_date if records else "Today" }}
+        </h2>
+
+    </div>
+
+
+</div>
+
+
+<!-- =====================================================
+     PRESENT STUDENTS
+===================================================== -->
+
+<div class="section">
+
+    <h2>✅ Present Students Today</h2>
+
+
+    {% if records %}
+
+    <table>
+
+        <tr>
+
+            <th>S.No</th>
+
+            <th>Roll No</th>
+
+            <th>Name</th>
+
+            <th>Department</th>
+
+            <th>Year</th>
+
+            <th>Time</th>
+
+            <th>Status</th>
+
+        </tr>
+
+
+        {% for student in records %}
+
+        <tr>
+
+            <td>
+                {{ loop.index }}
+            </td>
+
+            <td>
+                {{ student.roll_no }}
+            </td>
+
+            <td>
+                <b>{{ student.name }}</b>
+            </td>
+
+            <td>
+                {{ student.department }}
+            </td>
+
+            <td>
+                {{ student.year }}
+            </td>
+
+            <td>
+                {{ student.attendance_time }}
+            </td>
+
+            <td class="present">
+                ✅ {{ student.status }}
+            </td>
+
+        </tr>
+
+        {% endfor %}
+
+    </table>
+
+
+    {% else %}
+
+    <div class="empty">
+
+        No students marked attendance today.
+
+    </div>
+
+    {% endif %}
+
+</div>
+
+
+<!-- =====================================================
+     ABSENT STUDENTS
+===================================================== -->
+
+<div class="section">
+
+    <h2>❌ Absent Students Today</h2>
+
+
+    {% if absent_students %}
+
+    <table>
+
+        <tr>
+
+            <th>S.No</th>
+
+            <th>Roll No</th>
+
+            <th>Name</th>
+
+            <th>Department</th>
+
+            <th>Year</th>
+
+            <th>Status</th>
+
+        </tr>
+
+
+        {% for student in absent_students %}
+
+        <tr>
+
+            <td>
+                {{ loop.index }}
+            </td>
+
+            <td>
+                {{ student.roll_no }}
+            </td>
+
+            <td>
+                <b>{{ student.name }}</b>
+            </td>
+
+            <td>
+                {{ student.department }}
+            </td>
+
+            <td>
+                {{ student.year }}
+            </td>
+
+            <td class="absent">
+                ❌ Absent
+            </td>
+
+        </tr>
+
+        {% endfor %}
+
+    </table>
+
+
+    {% else %}
+
+    <div class="empty">
+
+        🎉 All students are present today!
+
+    </div>
+
+    {% endif %}
+
+</div>
+
+
+<!-- =====================================================
+     ADMIN BUTTONS
+===================================================== -->
+
+<div class="buttons">
+
+
+    <!-- STUDENT REGISTRATION -->
+
+    <a href="/register" class="btn register-btn">
+
+        📝 Student Registration
+
+    </a>
+
+
+    <!-- VIEW STUDENTS -->
+
+    <a href="/students" class="btn">
+
+        👨‍🎓 View Registered Students
+
+    </a>
+
+
+    <!-- ATTENDANCE HISTORY -->
+
+    <a href="/attendance" class="btn history-btn">
+
+        📋 View Attendance History
+
+    </a>
+
+
+    <!-- GENERATE QR -->
+
+    <a href="/generate_qr" class="btn qr-btn">
+
+        📱 Generate QR
+
+    </a>
+
+
+    <!-- LOGOUT -->
+
+    <a href="/logout" class="btn red-btn">
+
+        🚪 Logout
+
+    </a>
+
+
+</div>
+
+
+</div>
+
+
+</body>
+
+</html>
+```
