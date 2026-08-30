@@ -1,7 +1,7 @@
 import os
 from flask import Flask, render_template, request, redirect, session
 import mysql.connector
-from datetime import datetime, time,timedelta
+from datetime import datetime, time
 from math import radians, sin, cos, sqrt, atan2
 
 
@@ -421,7 +421,7 @@ def mark_attendance():
 
     # CURRENT DATE AND TIME
 
-    now = datetime.utcnow()+timedelta(hours=5,minutes=30)
+    now = datetime.utcnow()
 
     current_date = now.date()
     current_time = now.time()
