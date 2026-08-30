@@ -354,7 +354,7 @@ def generate_qr():
 
     now = datetime.now()
 
-    qr_data = "http://10.32.235.120:5000/scan_qr"
+    qr_data = "https://smart-qr-attendance1-3.onrender.com/scan_qr"
 
     return render_template(
         "qr_display.html",
