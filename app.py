@@ -1,8 +1,11 @@
 import os
+
 from flask import Flask, render_template, request, redirect, session
 import mysql.connector
-from datetime import datetime, time
+
+from datetime import datetime, time, timezone
 from zoneinfo import ZoneInfo
+
 from math import radians, sin, cos, sqrt, atan2
 
 
@@ -12,11 +15,15 @@ app.secret_key = "smart_qr_attendance_secret"
 
 
 # =====================================================
+# INDIA TIMEZONE
+# =====================================================
+
+INDIA_TZ = ZoneInfo("Asia/Kolkata")
+
+
+# =====================================================
 # AIVEN MYSQL CONNECTION
 # =====================================================
-import os
-
-# AIVEN MYSQL CONNECTION
 
 db = mysql.connector.connect(
     host=os.environ.get("AIVEN_HOST"),
@@ -98,13 +105,22 @@ def dashboard():
     total_students = cursor.fetchone()["total"]
 
 
+    # =================================================
+    # INDIA TODAY
+    # =================================================
+
+    india_now = datetime.now(timezone.utc).astimezone(INDIA_TZ)
+    today = india_now.date()
+
+
     # PRESENT TODAY
     cursor.execute(
         """
         SELECT COUNT(*) AS total
         FROM attendance
-        WHERE attendance_date = CURDATE()
-        """
+        WHERE attendance_date = %s
+        """,
+        (today,)
     )
 
     present_today = cursor.fetchone()["total"]
@@ -132,10 +148,11 @@ def dashboard():
         JOIN students
         ON attendance.student_id = students.id
 
-        WHERE attendance.attendance_date = CURDATE()
+        WHERE attendance.attendance_date = %s
 
         ORDER BY attendance.attendance_time DESC
-        """
+        """,
+        (today,)
     )
 
     records = cursor.fetchall()
@@ -154,12 +171,13 @@ def dashboard():
 
         LEFT JOIN attendance
         ON students.id = attendance.student_id
-        AND attendance.attendance_date = CURDATE()
+        AND attendance.attendance_date = %s
 
         WHERE attendance.student_id IS NULL
 
         ORDER BY students.roll_no ASC
-        """
+        """,
+        (today,)
     )
 
     absent_students = cursor.fetchall()
@@ -353,9 +371,19 @@ def generate_qr():
     if "admin_logged_in" not in session:
         return redirect("/")
 
-    now = datetime.now()
+    # =================================================
+    # GET CURRENT INDIA TIME
+    # UTC → IST
+    # =================================================
 
-    qr_data = "https://smart-qr-attendance1-3.onrender.com/scan_qr"
+    now = datetime.now(timezone.utc).astimezone(
+        ZoneInfo("Asia/Kolkata")
+    )
+
+    qr_data = (
+        "https://smart-qr-attendance1-3.onrender.com"
+        "/scan_qr"
+    )
 
     return render_template(
         "qr_display.html",
@@ -420,16 +448,31 @@ def mark_attendance():
         }
 
 
-    # CURRENT DATE AND TIME
+    # =================================================
+    # CURRENT INDIA DATE AND TIME
+    # UTC → IST
+    # =================================================
 
-    now = datetime.now(ZoneInfo("Asia/Kolkatha"))
+    now = datetime.now(timezone.utc).astimezone(
+        INDIA_TZ
+    )
 
-    current_date = now.strftime("%d-%m-%Y")
-    current_time = now.strftime("%I:%M %p")
+    current_date = now.date()
+    current_time = now.time()
+
+    display_date = now.strftime(
+        "%d-%m-%Y"
+    )
+
+    display_time = now.strftime(
+        "%I:%M %p"
+    )
 
 
+    # =================================================
     # ATTENDANCE TIME
     # 8:10 AM TO 11:00 PM
+    # =================================================
 
     class_start = time(8, 10)
     class_end = time(23, 0)
@@ -443,11 +486,14 @@ def mark_attendance():
 
         return {
             "success": False,
-            "message": "Attendance time has expired!"
+            "message":
+                "Attendance time has expired!"
         }
 
 
+    # =================================================
     # COLLEGE LOCATION
+    # =================================================
 
     COLLEGE_LAT = 12.671705
     COLLEGE_LON = 77.965916
@@ -455,7 +501,9 @@ def mark_attendance():
     ALLOWED_RADIUS = 200
 
 
+    # =================================================
     # DISTANCE CALCULATION
+    # =================================================
 
     R = 6371000
 
@@ -493,7 +541,9 @@ def mark_attendance():
     )
 
 
+    # =================================================
     # LOCATION VALIDATION
+    # =================================================
 
     if distance > ALLOWED_RADIUS:
 
@@ -505,7 +555,9 @@ def mark_attendance():
         }
 
 
+    # =================================================
     # DATABASE
+    # =================================================
 
     student_id = session["student_id"]
 
@@ -514,7 +566,9 @@ def mark_attendance():
     )
 
 
-    # CHECK ALREADY ATTENDED
+    # =================================================
+    # CHECK ALREADY ATTENDED TODAY
+    # =================================================
 
     cursor.execute(
         """
@@ -540,11 +594,14 @@ def mark_attendance():
             "success": False,
             "message":
                 "Attendance already marked today!",
-            "distance": distance
+            "distance": distance,
+            "time": display_time
         }
 
 
+    # =================================================
     # INSERT ATTENDANCE
+    # =================================================
 
     cursor.execute(
         """
@@ -577,10 +634,16 @@ def mark_attendance():
     cursor.close()
 
 
+    # =================================================
+    # SUCCESS RESPONSE
+    # =================================================
+
     return {
         "success": True,
         "message":
             "Attendance marked successfully!",
+        "date": display_date,
+        "time": display_time,
         "distance": distance
     }
 
@@ -636,6 +699,40 @@ def attendance():
 
 
 # =====================================================
+# TIME TEST
+# =====================================================
+
+@app.route("/time_test")
+def time_test():
+
+    utc_now = datetime.now(
+        timezone.utc
+    )
+
+    india_now = utc_now.astimezone(
+        ZoneInfo("Asia/Kolkata")
+    )
+
+    return {
+        "UTC": utc_now.strftime(
+            "%d-%m-%Y %I:%M:%S %p"
+        ),
+
+        "INDIA_TIME": india_now.strftime(
+            "%d-%m-%Y %I:%M:%S %p"
+        ),
+
+        "TIMEZONE": str(
+            india_now.tzinfo
+        ),
+
+        "UTC_OFFSET": str(
+            india_now.utcoffset()
+        )
+    }
+
+
+# =====================================================
 # LOGOUT
 # =====================================================
 
@@ -655,7 +752,11 @@ if __name__ == "__main__":
 
     app.run(
         host="0.0.0.0",
-        port=5000,
-        debug=True
+        port=int(
+            os.environ.get(
+                "PORT",
+                5000
+            )
+        ),
+        debug=False
     )
-
