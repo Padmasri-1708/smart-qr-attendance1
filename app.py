@@ -2,6 +2,7 @@ import os
 from flask import Flask, render_template, request, redirect, session
 import mysql.connector
 from datetime import datetime, time
+from zoneinfo import ZoneInfo
 from math import radians, sin, cos, sqrt, atan2
 
 
@@ -421,10 +422,10 @@ def mark_attendance():
 
     # CURRENT DATE AND TIME
 
-    now = datetime.utcnow()
+    now = datetime.now(ZoneInfo("Asia/Kolkatha"))
 
-    current_date = now.date()
-    current_time = now.time()
+    current_date = now.strftime("%d-%m-%Y")
+    current_time = now.strftime("%I:%M %p")
 
 
     # ATTENDANCE TIME
