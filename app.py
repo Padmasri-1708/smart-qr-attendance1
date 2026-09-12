@@ -109,11 +109,17 @@ def dashboard():
     # INDIA TODAY
     # =================================================
 
-    india_now = datetime.now(timezone.utc).astimezone(INDIA_TZ)
+    india_now = datetime.now(
+        timezone.utc
+    ).astimezone(INDIA_TZ)
+
     today = india_now.date()
 
 
+    # =================================================
     # PRESENT TODAY
+    # =================================================
+
     cursor.execute(
         """
         SELECT COUNT(*) AS total
@@ -130,7 +136,10 @@ def dashboard():
     absent_today = total_students - present_today
 
 
+    # =================================================
     # PRESENT STUDENTS TODAY
+    # =================================================
+
     cursor.execute(
         """
         SELECT
@@ -158,7 +167,10 @@ def dashboard():
     records = cursor.fetchall()
 
 
+    # =================================================
     # ABSENT STUDENTS TODAY
+    # =================================================
+
     cursor.execute(
         """
         SELECT
@@ -350,7 +362,9 @@ def student_login():
     if student_data:
 
         session["student_id"] = student_data["id"]
+
         session["student_name"] = student_data["name"]
+
         session["roll_no"] = student_data["roll_no"]
 
         return redirect("/scan_qr")
@@ -371,25 +385,37 @@ def generate_qr():
     if "admin_logged_in" not in session:
         return redirect("/")
 
+
     # =================================================
     # GET CURRENT INDIA TIME
     # UTC → IST
     # =================================================
 
-    now = datetime.now(timezone.utc).astimezone(
-        ZoneInfo("Asia/Kolkata")
+    now = datetime.now(
+        timezone.utc
+    ).astimezone(
+        INDIA_TZ
     )
+
 
     qr_data = (
         "https://smart-qr-attendance1-3.onrender.com"
         "/scan_qr"
     )
 
+
     return render_template(
         "qr_display.html",
+
         qr_data=qr_data,
-        date=now.strftime("%d-%m-%Y"),
-        time=now.strftime("%I:%M %p")
+
+        date=now.strftime(
+            "%d-%m-%Y"
+        ),
+
+        time=now.strftime(
+            "%I:%M %p"
+        )
     )
 
 
@@ -403,10 +429,13 @@ def scan_qr():
     if "student_id" not in session:
         return redirect("/student")
 
+
     student_name = session["student_name"]
+
 
     return render_template(
         "scan_qr.html",
+
         student_name=student_name
     )
 
@@ -418,6 +447,10 @@ def scan_qr():
 @app.route("/mark_attendance", methods=["POST"])
 def mark_attendance():
 
+    # =================================================
+    # STUDENT LOGIN CHECK
+    # =================================================
+
     if "student_id" not in session:
 
         return {
@@ -426,7 +459,12 @@ def mark_attendance():
         }, 401
 
 
+    # =================================================
+    # GET JSON DATA
+    # =================================================
+
     data = request.get_json()
+
 
     if not data:
 
@@ -437,8 +475,27 @@ def mark_attendance():
 
 
     latitude = data.get("latitude")
+
     longitude = data.get("longitude")
 
+    device_id = data.get("device_id")
+
+
+    # =================================================
+    # DEVICE ID CHECK
+    # =================================================
+
+    if not device_id:
+
+        return {
+            "success": False,
+            "message": "Device ID not received!"
+        }
+
+
+    # =================================================
+    # LOCATION CHECK
+    # =================================================
 
     if latitude is None or longitude is None:
 
@@ -453,16 +510,22 @@ def mark_attendance():
     # UTC → IST
     # =================================================
 
-    now = datetime.now(timezone.utc).astimezone(
+    now = datetime.now(
+        timezone.utc
+    ).astimezone(
         INDIA_TZ
     )
 
+
     current_date = now.date()
+
     current_time = now.time()
+
 
     display_date = now.strftime(
         "%d-%m-%Y"
     )
+
 
     display_time = now.strftime(
         "%I:%M %p"
@@ -474,8 +537,16 @@ def mark_attendance():
     # 8:10 AM TO 11:00 PM
     # =================================================
 
-    class_start = time(8, 10)
-    class_end = time(23, 0)
+    class_start = time(
+        8,
+        10
+    )
+
+
+    class_end = time(
+        23,
+        0
+    )
 
 
     if not (
@@ -496,6 +567,7 @@ def mark_attendance():
     # =================================================
 
     COLLEGE_LAT = 12.671705
+
     COLLEGE_LON = 77.965916
 
     ALLOWED_RADIUS = 200
@@ -507,38 +579,67 @@ def mark_attendance():
 
     R = 6371000
 
-    lat1 = radians(COLLEGE_LAT)
-    lat2 = radians(float(latitude))
 
-    delta_lat = radians(
-        float(latitude) - COLLEGE_LAT
-    )
+    try:
 
-    delta_lon = radians(
-        float(longitude) - COLLEGE_LON
-    )
+        lat1 = radians(
+            COLLEGE_LAT
+        )
 
-    a = (
-        sin(delta_lat / 2) ** 2
-        +
-        cos(lat1)
-        *
-        cos(lat2)
-        *
-        sin(delta_lon / 2) ** 2
-    )
+        lat2 = radians(
+            float(latitude)
+        )
 
-    c = 2 * atan2(
-        sqrt(a),
-        sqrt(1 - a)
-    )
 
-    distance = R * c
+        delta_lat = radians(
+            float(latitude)
+            -
+            COLLEGE_LAT
+        )
 
-    distance = round(
-        distance,
-        2
-    )
+
+        delta_lon = radians(
+            float(longitude)
+            -
+            COLLEGE_LON
+        )
+
+
+        a = (
+            sin(delta_lat / 2) ** 2
+            +
+            cos(lat1)
+            *
+            cos(lat2)
+            *
+            sin(delta_lon / 2) ** 2
+        )
+
+
+        c = 2 * atan2(
+            sqrt(a),
+            sqrt(1 - a)
+        )
+
+
+        distance = R * c
+
+
+        distance = round(
+            distance,
+            2
+        )
+
+    except (
+        TypeError,
+        ValueError
+    ):
+
+        return {
+            "success": False,
+            "message":
+                "Invalid location data!"
+        }
 
 
     # =================================================
@@ -556,14 +657,106 @@ def mark_attendance():
 
 
     # =================================================
-    # DATABASE
+    # STUDENT ID
     # =================================================
 
     student_id = session["student_id"]
 
+
+    # =================================================
+    # DATABASE CURSOR
+    # =================================================
+
     cursor = db.cursor(
         dictionary=True
     )
+
+
+    # =================================================
+    # DEVICE BINDING
+    # =================================================
+
+    cursor.execute(
+        """
+        SELECT
+            device_id
+        FROM students
+        WHERE id=%s
+        """,
+        (
+            student_id,
+        )
+    )
+
+
+    student_device = cursor.fetchone()
+
+
+    # =================================================
+    # STUDENT NOT FOUND
+    # =================================================
+
+    if not student_device:
+
+        cursor.close()
+
+        return {
+            "success": False,
+            "message":
+                "Student not found!"
+        }
+
+
+    registered_device = \
+        student_device["device_id"]
+
+
+    # =================================================
+    # FIRST DEVICE
+    # =================================================
+
+    if registered_device is None:
+
+        cursor.execute(
+            """
+            UPDATE students
+
+            SET device_id=%s
+
+            WHERE id=%s
+            """,
+            (
+                device_id,
+                student_id
+            )
+        )
+
+
+        db.commit()
+
+
+    # =================================================
+    # SAME DEVICE
+    # =================================================
+
+    elif registered_device == device_id:
+
+        pass
+
+
+    # =================================================
+    # DIFFERENT DEVICE
+    # =================================================
+
+    else:
+
+        cursor.close()
+
+        return {
+            "success": False,
+            "message":
+                "This student is already registered with another device."
+        }
 
 
     # =================================================
@@ -574,7 +767,9 @@ def mark_attendance():
         """
         SELECT *
         FROM attendance
+
         WHERE student_id=%s
+
         AND attendance_date=%s
         """,
         (
@@ -583,8 +778,13 @@ def mark_attendance():
         )
     )
 
+
     existing = cursor.fetchone()
 
+
+    # =================================================
+    # ALREADY ATTENDED
+    # =================================================
 
     if existing:
 
@@ -592,10 +792,15 @@ def mark_attendance():
 
         return {
             "success": False,
+
             "message":
                 "Attendance already marked today!",
-            "distance": distance,
-            "time": display_time
+
+            "distance":
+                distance,
+
+            "time":
+                display_time
         }
 
 
@@ -629,7 +834,9 @@ def mark_attendance():
         )
     )
 
+
     db.commit()
+
 
     cursor.close()
 
@@ -639,12 +846,20 @@ def mark_attendance():
     # =================================================
 
     return {
+
         "success": True,
+
         "message":
             "Attendance marked successfully!",
-        "date": display_date,
-        "time": display_time,
-        "distance": distance
+
+        "date":
+            display_date,
+
+        "time":
+            display_time,
+
+        "distance":
+            distance
     }
 
 
@@ -658,9 +873,11 @@ def attendance():
     if "admin_logged_in" not in session:
         return redirect("/")
 
+
     cursor = db.cursor(
         dictionary=True
     )
+
 
     cursor.execute(
         """
@@ -669,28 +886,40 @@ def attendance():
             attendance.id,
 
             students.roll_no,
+
             students.name,
+
             students.department,
+
             students.year,
 
             attendance.attendance_date,
+
             attendance.attendance_time,
+
             attendance.status
 
         FROM attendance
 
         JOIN students
-        ON attendance.student_id = students.id
+
+        ON attendance.student_id =
+           students.id
 
         ORDER BY
+
             attendance.attendance_date DESC,
+
             attendance.attendance_time DESC
         """
     )
 
+
     records = cursor.fetchall()
 
+
     cursor.close()
+
 
     return render_template(
         "attendance.html",
@@ -709,26 +938,33 @@ def time_test():
         timezone.utc
     )
 
+
     india_now = utc_now.astimezone(
-        ZoneInfo("Asia/Kolkata")
+        INDIA_TZ
     )
 
+
     return {
-        "UTC": utc_now.strftime(
-            "%d-%m-%Y %I:%M:%S %p"
-        ),
 
-        "INDIA_TIME": india_now.strftime(
-            "%d-%m-%Y %I:%M:%S %p"
-        ),
+        "UTC":
+            utc_now.strftime(
+                "%d-%m-%Y %I:%M:%S %p"
+            ),
 
-        "TIMEZONE": str(
-            india_now.tzinfo
-        ),
+        "INDIA_TIME":
+            india_now.strftime(
+                "%d-%m-%Y %I:%M:%S %p"
+            ),
 
-        "UTC_OFFSET": str(
-            india_now.utcoffset()
-        )
+        "TIMEZONE":
+            str(
+                india_now.tzinfo
+            ),
+
+        "UTC_OFFSET":
+            str(
+                india_now.utcoffset()
+            )
     }
 
 
@@ -751,12 +987,15 @@ def logout():
 if __name__ == "__main__":
 
     app.run(
+
         host="0.0.0.0",
+
         port=int(
             os.environ.get(
                 "PORT",
                 5000
             )
         ),
+
         debug=False
     )

@@ -1,4 +1,3 @@
-    
 <!DOCTYPE html>
 <html>
 
@@ -9,7 +8,7 @@
     <style>
 
         body {
-            font-family: Arial;
+            font-family: Arial, sans-serif;
             background: #f5f5f5;
             text-align: center;
             padding-top: 50px;
@@ -18,6 +17,7 @@
         .box {
             background: white;
             width: 400px;
+            max-width: 90%;
             margin: auto;
             padding: 35px;
             border-radius: 15px;
@@ -32,6 +32,11 @@
             border-radius: 8px;
             font-size: 17px;
             cursor: pointer;
+        }
+
+        button:disabled {
+            background: #999;
+            cursor: not-allowed;
         }
 
         #result {
@@ -53,9 +58,17 @@
             margin-top: 15px;
         }
 
+        .device {
+            color: #777;
+            font-size: 12px;
+            margin-top: 15px;
+            word-break: break-all;
+        }
+
     </style>
 
 </head>
+
 
 <body>
 
@@ -72,13 +85,25 @@
         📍 Please enable your location
     </p>
 
-    <button onclick="markAttendance()">
+    <button
+        id="attendanceButton"
+        onclick="markAttendance()">
+
         📍 Verify Location & Mark Attendance
+
     </button>
 
     <div id="result"></div>
 
-    <div class="location" id="location"></div>
+    <div
+        class="location"
+        id="location">
+    </div>
+
+    <div
+        class="device"
+        id="deviceInfo">
+    </div>
 
     <br>
 
@@ -91,67 +116,270 @@
 
 <script>
 
+/* =====================================================
+   DEVICE ID
+   ===================================================== */
+
+function getDeviceId() {
+
+    let deviceId =
+        localStorage.getItem("smart_qr_device_id");
+
+
+    /*
+       If device ID already exists,
+       use the same ID.
+    */
+
+    if (deviceId) {
+        return deviceId;
+    }
+
+
+    /*
+       Create a new device ID.
+    */
+
+    if (
+        typeof crypto !== "undefined" &&
+        typeof crypto.randomUUID === "function"
+    ) {
+
+        deviceId =
+            "DEVICE-" +
+            crypto.randomUUID();
+
+    }
+
+    else {
+
+        /*
+           Fallback method
+           if randomUUID is unavailable.
+        */
+
+        deviceId =
+            "DEVICE-" +
+            Date.now() +
+            "-" +
+            Math.random()
+                .toString(36)
+                .substring(2, 12);
+
+    }
+
+
+    /*
+       Save device ID in browser.
+    */
+
+    localStorage.setItem(
+        "smart_qr_device_id",
+        deviceId
+    );
+
+
+    return deviceId;
+}
+
+
+/* =====================================================
+   MARK ATTENDANCE
+   ===================================================== */
+
 function markAttendance() {
 
-    const result = document.getElementById("result");
-    const locationText = document.getElementById("location");
+    const result =
+        document.getElementById("result");
 
-    result.innerHTML = "📍 Getting your location...";
+    const locationText =
+        document.getElementById("location");
+
+    const button =
+        document.getElementById("attendanceButton");
+
+
+    result.innerHTML =
+        "📍 Getting your location...";
+
     result.className = "";
+
+
+    locationText.innerHTML = "";
+
+
+    /*
+       Disable button while checking.
+    */
+
+    button.disabled = true;
+
+
+    /*
+       Check GPS support.
+    */
 
     if (!navigator.geolocation) {
 
-        result.innerHTML = "❌ GPS is not supported by this browser.";
-        result.className = "error";
+        result.innerHTML =
+            "❌ GPS is not supported by this browser.";
+
+        result.className =
+            "error";
+
+        button.disabled = false;
 
         return;
     }
 
 
+    /*
+       Get browser/device ID.
+    */
+
+    let deviceId;
+
+    try {
+
+        deviceId = getDeviceId();
+
+    }
+
+    catch (error) {
+
+        console.error(
+            "Device ID Error:",
+            error
+        );
+
+        result.innerHTML =
+            "❌ Unable to create Device ID.";
+
+        result.className =
+            "error";
+
+        button.disabled = false;
+
+        return;
+    }
+
+
+    /*
+       Show device ID for testing.
+       You can remove this later.
+    */
+
+    document.getElementById(
+        "deviceInfo"
+    ).innerHTML =
+        "Device ID: " + deviceId;
+
+
+    /*
+       Get current location.
+    */
+
     navigator.geolocation.getCurrentPosition(
 
         function(position) {
 
-            const latitude = position.coords.latitude;
-            const longitude = position.coords.longitude;
+
+            /* =========================================
+               GET LATITUDE AND LONGITUDE
+               ========================================= */
+
+            const latitude =
+                position.coords.latitude;
+
+            const longitude =
+                position.coords.longitude;
+
+
+            /* =========================================
+               DISPLAY LOCATION
+               ========================================= */
 
             locationText.innerHTML =
-                "Latitude: " + latitude.toFixed(6) +
+                "Latitude: " +
+                latitude.toFixed(6) +
                 "<br>" +
-                "Longitude: " + longitude.toFixed(6);
+                "Longitude: " +
+                longitude.toFixed(6);
 
 
             result.innerHTML =
-                "⏳ Checking college location...";
+                "⏳ Checking college location and device...";
 
 
-            fetch("/mark_attendance", {
+            /* =========================================
+               SEND DATA TO FLASK
+               ========================================= */
 
-                method: "POST",
+            fetch(
+                "/mark_attendance",
+                {
 
-                headers: {
-                    "Content-Type": "application/json"
-                },
+                    method: "POST",
 
-                body: JSON.stringify({
+                    headers: {
+                        "Content-Type":
+                            "application/json"
+                    },
 
-                    latitude: latitude,
-                    longitude: longitude
+                    body: JSON.stringify({
 
-                })
+                        latitude:
+                            latitude,
+
+                        longitude:
+                            longitude,
+
+                        device_id:
+                            deviceId
+
+                    })
+
+                }
+            )
+
+
+            /* =========================================
+               GET SERVER RESPONSE
+               ========================================= */
+
+            .then(function(response) {
+
+                return response.json();
 
             })
 
-            .then(response => response.json())
 
-            .then(data => {
+            /* =========================================
+               PROCESS RESPONSE
+               ========================================= */
+
+            .then(function(data) {
+
+                console.log(
+                    "Server Response:",
+                    data
+                );
+
 
                 if (data.success) {
 
-                    result.innerHTML =
-                        "✅ " + data.message;
 
-                    result.className = "success";
+                    /*
+                       Attendance successful.
+                    */
+
+                    result.innerHTML =
+                        "✅ " +
+                        data.message;
+
+                    result.className =
+                        "success";
+
 
                     locationText.innerHTML +=
                         "<br><br>" +
@@ -159,16 +387,38 @@ function markAttendance() {
                         data.distance +
                         " meters";
 
+
+                    /*
+                       Keep button disabled after success.
+                    */
+
+                    button.disabled = true;
+
                 }
+
 
                 else {
 
+
+                    /*
+                       Attendance failed.
+                    */
+
                     result.innerHTML =
-                        "❌ " + data.message;
+                        "❌ " +
+                        data.message;
 
-                    result.className = "error";
+                    result.className =
+                        "error";
 
-                    if (data.distance) {
+
+                    /*
+                       Show distance if server sends it.
+                    */
+
+                    if (
+                        data.distance !== undefined
+                    ) {
 
                         locationText.innerHTML +=
                             "<br><br>" +
@@ -178,23 +428,47 @@ function markAttendance() {
 
                     }
 
+
+                    /*
+                       Allow retry for errors.
+                    */
+
+                    button.disabled = false;
+
                 }
 
             })
 
-            .catch(error => {
 
-                console.error(error);
+            /* =========================================
+               SERVER CONNECTION ERROR
+               ========================================= */
+
+            .catch(function(error) {
+
+                console.error(
+                    "Fetch Error:",
+                    error
+                );
+
 
                 result.innerHTML =
                     "❌ Unable to connect to server.";
 
-                result.className = "error";
+                result.className =
+                    "error";
+
+
+                button.disabled = false;
 
             });
 
         },
 
+
+        /* =============================================
+           LOCATION ERROR
+           ============================================= */
 
         function(error) {
 
@@ -226,14 +500,26 @@ function markAttendance() {
 
             }
 
-            result.className = "error";
+
+            result.className =
+                "error";
+
+
+            button.disabled = false;
 
         },
 
+
+        /* =============================================
+           GPS OPTIONS
+           ============================================= */
+
         {
-            enableHighAccuracy:false,
-            timeout:60000,
-            maximumAge:30000
+            enableHighAccuracy: false,
+
+            timeout: 60000,
+
+            maximumAge: 30000
         }
 
     );
