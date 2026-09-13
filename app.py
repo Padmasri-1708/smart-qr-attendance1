@@ -680,9 +680,9 @@ def mark_attendance():
     # COLLEGE LOCATION
     # =================================================
 
-    COLLEGE_LAT = 12.554142
+    COLLEGE_LAT = 12.554062
 
-    COLLEGE_LON = 78.015793
+    COLLEGE_LON = 78.021858
 
     ALLOWED_RADIUS = 200
 
