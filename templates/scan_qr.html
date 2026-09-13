@@ -3,6 +3,11 @@
 
 <head>
 
+    <meta charset="UTF-8">
+
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0">
+
     <title>Smart QR Attendance</title>
 
     <style>
@@ -12,16 +17,21 @@
             background: #f5f5f5;
             text-align: center;
             padding-top: 50px;
+            margin: 0;
         }
 
         .box {
             background: white;
             width: 400px;
-            max-width: 90%;
+            max-width: 85%;
             margin: auto;
             padding: 35px;
             border-radius: 15px;
             box-shadow: 0 2px 10px #ccc;
+        }
+
+        h2 {
+            margin-bottom: 20px;
         }
 
         button {
@@ -56,6 +66,7 @@
         .location {
             color: #555;
             margin-top: 15px;
+            line-height: 1.6;
         }
 
         .device {
@@ -63,6 +74,12 @@
             font-size: 12px;
             margin-top: 15px;
             word-break: break-all;
+            line-height: 1.5;
+        }
+
+        .logout {
+            display: inline-block;
+            margin-top: 15px;
         }
 
     </style>
@@ -107,8 +124,12 @@
 
     <br>
 
-    <a href="/logout">
+    <a
+        class="logout"
+        href="/logout">
+
         Logout
+
     </a>
 
 </div>
@@ -123,21 +144,27 @@
 function getDeviceId() {
 
     let deviceId =
-        localStorage.getItem("smart_qr_device_id");
+        localStorage.getItem(
+            "smart_qr_device_id"
+        );
 
 
     /*
-       If device ID already exists,
-       use the same ID.
+       Existing Device ID
+       ------------------
+       If this browser already has
+       a Device ID, use the same ID.
     */
 
     if (deviceId) {
+
         return deviceId;
+
     }
 
 
     /*
-       Create a new device ID.
+       Create new Device ID
     */
 
     if (
@@ -154,8 +181,7 @@ function getDeviceId() {
     else {
 
         /*
-           Fallback method
-           if randomUUID is unavailable.
+           Fallback Device ID
         */
 
         deviceId =
@@ -170,7 +196,7 @@ function getDeviceId() {
 
 
     /*
-       Save device ID in browser.
+       Save Device ID
     */
 
     localStorage.setItem(
@@ -184,20 +210,157 @@ function getDeviceId() {
 
 
 /* =====================================================
+   DEVICE NAME
+   ===================================================== */
+
+function getDeviceName() {
+
+    const ua =
+        navigator.userAgent;
+
+
+    /*
+       Android
+    */
+
+    if (/Android/i.test(ua)) {
+
+        /*
+           Try to extract Android device name.
+        */
+
+        const match =
+            ua.match(
+                /Android[^;]*;\s*(?:[^;]+;\s*)?([^;)]+?)(?:\s+Build\/[^;)]+)?[;)]/i
+            );
+
+
+        if (
+            match &&
+            match[1]
+        ) {
+
+            let name =
+                match[1].trim();
+
+
+            /*
+               Remove common unwanted text
+            */
+
+            name =
+                name.replace(
+                    /^wv$/i,
+                    ""
+                ).trim();
+
+
+            if (name) {
+
+                return name;
+
+            }
+
+        }
+
+
+        return "Android Device";
+
+    }
+
+
+    /*
+       iPhone
+    */
+
+    if (/iPhone/i.test(ua)) {
+
+        return "iPhone";
+
+    }
+
+
+    /*
+       iPad
+    */
+
+    if (/iPad/i.test(ua)) {
+
+        return "iPad";
+
+    }
+
+
+    /*
+       Windows
+    */
+
+    if (/Windows/i.test(ua)) {
+
+        return "Windows Device";
+
+    }
+
+
+    /*
+       Mac
+    */
+
+    if (/Macintosh/i.test(ua)) {
+
+        return "Mac Device";
+
+    }
+
+
+    /*
+       Linux
+    */
+
+    if (/Linux/i.test(ua)) {
+
+        return "Linux Device";
+
+    }
+
+
+    return "Unknown Device";
+}
+
+
+/* =====================================================
    MARK ATTENDANCE
    ===================================================== */
 
 function markAttendance() {
 
     const result =
-        document.getElementById("result");
+        document.getElementById(
+            "result"
+        );
+
 
     const locationText =
-        document.getElementById("location");
+        document.getElementById(
+            "location"
+        );
+
 
     const button =
-        document.getElementById("attendanceButton");
+        document.getElementById(
+            "attendanceButton"
+        );
 
+
+    const deviceInfo =
+        document.getElementById(
+            "deviceInfo"
+        );
+
+
+    /*
+       Initial message
+    */
 
     result.innerHTML =
         "📍 Getting your location...";
@@ -205,19 +368,20 @@ function markAttendance() {
     result.className = "";
 
 
-    locationText.innerHTML = "";
+    locationText.innerHTML =
+        "";
 
 
     /*
-       Disable button while checking.
+       Disable button
     */
 
     button.disabled = true;
 
 
-    /*
-       Check GPS support.
-    */
+    /* =================================================
+       CHECK GPS SUPPORT
+       ================================================= */
 
     if (!navigator.geolocation) {
 
@@ -233,27 +397,35 @@ function markAttendance() {
     }
 
 
-    /*
-       Get browser/device ID.
-    */
+    /* =================================================
+       GET DEVICE INFORMATION
+       ================================================= */
 
     let deviceId;
 
+    let deviceName;
+
+
     try {
 
-        deviceId = getDeviceId();
+        deviceId =
+            getDeviceId();
+
+        deviceName =
+            getDeviceName();
 
     }
 
     catch (error) {
 
         console.error(
-            "Device ID Error:",
+            "Device Error:",
             error
         );
 
+
         result.innerHTML =
-            "❌ Unable to create Device ID.";
+            "❌ Unable to create device information.";
 
         result.className =
             "error";
@@ -264,20 +436,21 @@ function markAttendance() {
     }
 
 
-    /*
-       Show device ID for testing.
-       You can remove this later.
-    */
+    /* =================================================
+       SHOW DEVICE INFORMATION
+       ================================================= */
 
-    document.getElementById(
-        "deviceInfo"
-    ).innerHTML =
-        "Device ID: " + deviceId;
+    deviceInfo.innerHTML =
+        "Device Name: " +
+        deviceName +
+        "<br>" +
+        "Device ID: " +
+        deviceId;
 
 
-    /*
-       Get current location.
-    */
+    /* =================================================
+       GET CURRENT LOCATION
+       ================================================= */
 
     navigator.geolocation.getCurrentPosition(
 
@@ -285,11 +458,16 @@ function markAttendance() {
 
 
             /* =========================================
-               GET LATITUDE AND LONGITUDE
+               LATITUDE
                ========================================= */
 
             const latitude =
                 position.coords.latitude;
+
+
+            /* =========================================
+               LONGITUDE
+               ========================================= */
 
             const longitude =
                 position.coords.longitude;
@@ -322,8 +500,10 @@ function markAttendance() {
                     method: "POST",
 
                     headers: {
+
                         "Content-Type":
                             "application/json"
+
                     },
 
                     body: JSON.stringify({
@@ -335,7 +515,10 @@ function markAttendance() {
                             longitude,
 
                         device_id:
-                            deviceId
+                            deviceId,
+
+                        device_name:
+                            deviceName
 
                     })
 
@@ -344,7 +527,7 @@ function markAttendance() {
 
 
             /* =========================================
-               GET SERVER RESPONSE
+               SERVER RESPONSE
                ========================================= */
 
             .then(function(response) {
@@ -366,12 +549,11 @@ function markAttendance() {
                 );
 
 
+                /* =====================================
+                   SUCCESS
+                   ===================================== */
+
                 if (data.success) {
-
-
-                    /*
-                       Attendance successful.
-                    */
 
                     result.innerHTML =
                         "✅ " +
@@ -389,7 +571,24 @@ function markAttendance() {
 
 
                     /*
-                       Keep button disabled after success.
+                       Show saved device name
+                    */
+
+                    if (data.device_name) {
+
+                        deviceInfo.innerHTML =
+                            "Device Name: " +
+                            data.device_name +
+                            "<br>" +
+                            "Device ID: " +
+                            deviceId;
+
+                    }
+
+
+                    /*
+                       Disable after successful
+                       attendance.
                     */
 
                     button.disabled = true;
@@ -397,24 +596,26 @@ function markAttendance() {
                 }
 
 
+                /* =====================================
+                   ERROR
+                   ===================================== */
+
                 else {
-
-
-                    /*
-                       Attendance failed.
-                    */
 
                     result.innerHTML =
                         "❌ " +
-                        data.message;
+                        (
+                            data.message ||
+                            "Attendance failed."
+                        );
 
                     result.className =
                         "error";
 
 
-                    /*
-                       Show distance if server sends it.
-                    */
+                    /* =================================
+                       SHOW DISTANCE
+                       ================================= */
 
                     if (
                         data.distance !== undefined
@@ -430,7 +631,7 @@ function markAttendance() {
 
 
                     /*
-                       Allow retry for errors.
+                       Allow retry
                     */
 
                     button.disabled = false;
@@ -441,7 +642,7 @@ function markAttendance() {
 
 
             /* =========================================
-               SERVER CONNECTION ERROR
+               FETCH ERROR
                ========================================= */
 
             .catch(function(error) {
@@ -515,11 +716,13 @@ function markAttendance() {
            ============================================= */
 
         {
-            enableHighAccuracy: false,
+
+            enableHighAccuracy: true,
 
             timeout: 60000,
 
             maximumAge: 30000
+
         }
 
     );

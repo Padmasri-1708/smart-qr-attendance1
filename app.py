@@ -11,7 +11,10 @@ from math import radians, sin, cos, sqrt, atan2
 
 app = Flask(__name__)
 
-app.secret_key = "smart_qr_attendance_secret"
+app.secret_key = os.environ.get(
+    "FLASK_SECRET_KEY",
+    "smart_qr_attendance_secret"
+)
 
 
 # =====================================================
@@ -25,13 +28,23 @@ INDIA_TZ = ZoneInfo("Asia/Kolkata")
 # AIVEN MYSQL CONNECTION
 # =====================================================
 
-db = mysql.connector.connect(
-    host=os.environ.get("AIVEN_HOST"),
-    port=int(os.environ.get("AIVEN_PORT", "20098")),
-    user=os.environ.get("AIVEN_USER"),
-    password=os.environ.get("AIVEN_PASSWORD"),
-    database="attendance_db"
-)
+def get_db():
+    """
+    Create a fresh MySQL connection.
+
+    Aiven MySQL requires SSL.
+    """
+
+    return mysql.connector.connect(
+        host=os.environ.get("AIVEN_HOST"),
+        port=int(os.environ.get("AIVEN_PORT", "20098")),
+        user=os.environ.get("AIVEN_USER"),
+        password=os.environ.get("AIVEN_PASSWORD"),
+        database="attendance_db",
+
+        # Aiven requires SSL
+        ssl_disabled=False
+    )
 
 
 # =====================================================
@@ -41,7 +54,9 @@ db = mysql.connector.connect(
 @app.route("/")
 def home():
 
-    return render_template("admin_login.html")
+    return render_template(
+        "admin_login.html"
+    )
 
 
 # =====================================================
@@ -54,20 +69,30 @@ def admin_login():
     username = request.form["username"]
     password = request.form["password"]
 
+    db = get_db()
     cursor = db.cursor(dictionary=True)
 
-    cursor.execute(
-        """
-        SELECT *
-        FROM admin
-        WHERE username=%s AND password=%s
-        """,
-        (username, password)
-    )
+    try:
 
-    admin = cursor.fetchone()
+        cursor.execute(
+            """
+            SELECT *
+            FROM admin
+            WHERE username=%s
+            AND password=%s
+            """,
+            (
+                username,
+                password
+            )
+        )
 
-    cursor.close()
+        admin = cursor.fetchone()
+
+    finally:
+
+        cursor.close()
+        db.close()
 
     if admin:
 
@@ -92,117 +117,140 @@ def dashboard():
     if "admin_logged_in" not in session:
         return redirect("/")
 
+    db = get_db()
     cursor = db.cursor(dictionary=True)
 
-    # TOTAL STUDENTS
-    cursor.execute(
-        """
-        SELECT COUNT(*) AS total
-        FROM students
-        """
-    )
+    try:
 
-    total_students = cursor.fetchone()["total"]
+        # TOTAL STUDENTS
+        cursor.execute(
+            """
+            SELECT COUNT(*) AS total
+            FROM students
+            """
+        )
 
-
-    # =================================================
-    # INDIA TODAY
-    # =================================================
-
-    india_now = datetime.now(
-        timezone.utc
-    ).astimezone(INDIA_TZ)
-
-    today = india_now.date()
+        total_students = cursor.fetchone()["total"]
 
 
-    # =================================================
-    # PRESENT TODAY
-    # =================================================
+        # =================================================
+        # INDIA TODAY
+        # =================================================
 
-    cursor.execute(
-        """
-        SELECT COUNT(*) AS total
-        FROM attendance
-        WHERE attendance_date = %s
-        """,
-        (today,)
-    )
+        india_now = datetime.now(
+            timezone.utc
+        ).astimezone(
+            INDIA_TZ
+        )
 
-    present_today = cursor.fetchone()["total"]
+        today = india_now.date()
 
 
-    # ABSENT TODAY
-    absent_today = total_students - present_today
+        # =================================================
+        # PRESENT TODAY
+        # =================================================
+
+        cursor.execute(
+            """
+            SELECT COUNT(*) AS total
+            FROM attendance
+            WHERE attendance_date=%s
+            """,
+            (
+                today,
+            )
+        )
+
+        present_today = cursor.fetchone()["total"]
 
 
-    # =================================================
-    # PRESENT STUDENTS TODAY
-    # =================================================
-
-    cursor.execute(
-        """
-        SELECT
-            attendance.id,
-            students.roll_no,
-            students.name,
-            students.department,
-            students.year,
-            attendance.attendance_date,
-            attendance.attendance_time,
-            attendance.status
-
-        FROM attendance
-
-        JOIN students
-        ON attendance.student_id = students.id
-
-        WHERE attendance.attendance_date = %s
-
-        ORDER BY attendance.attendance_time DESC
-        """,
-        (today,)
-    )
-
-    records = cursor.fetchall()
+        # ABSENT TODAY
+        absent_today = (
+            total_students -
+            present_today
+        )
 
 
-    # =================================================
-    # ABSENT STUDENTS TODAY
-    # =================================================
+        # =================================================
+        # PRESENT STUDENTS TODAY
+        # =================================================
 
-    cursor.execute(
-        """
-        SELECT
-            students.roll_no,
-            students.name,
-            students.department,
-            students.year
+        cursor.execute(
+            """
+            SELECT
+                attendance.id,
+                students.roll_no,
+                students.name,
+                students.department,
+                students.year,
 
-        FROM students
+                attendance.attendance_date,
+                attendance.attendance_time,
+                attendance.status
 
-        LEFT JOIN attendance
-        ON students.id = attendance.student_id
-        AND attendance.attendance_date = %s
+            FROM attendance
 
-        WHERE attendance.student_id IS NULL
+            JOIN students
+            ON attendance.student_id=students.id
 
-        ORDER BY students.roll_no ASC
-        """,
-        (today,)
-    )
+            WHERE attendance.attendance_date=%s
 
-    absent_students = cursor.fetchall()
+            ORDER BY attendance.attendance_time DESC
+            """,
+            (
+                today,
+            )
+        )
 
-    cursor.close()
+        records = cursor.fetchall()
+
+
+        # =================================================
+        # ABSENT STUDENTS TODAY
+        # =================================================
+
+        cursor.execute(
+            """
+            SELECT
+                students.roll_no,
+                students.name,
+                students.department,
+                students.year
+
+            FROM students
+
+            LEFT JOIN attendance
+            ON students.id=attendance.student_id
+            AND attendance.attendance_date=%s
+
+            WHERE attendance.student_id IS NULL
+
+            ORDER BY students.roll_no ASC
+            """,
+            (
+                today,
+            )
+        )
+
+        absent_students = cursor.fetchall()
+
+    finally:
+
+        cursor.close()
+        db.close()
 
 
     return render_template(
         "dashboard.html",
+
         total_students=total_students,
+
         present_today=present_today,
+
         absent_today=absent_today,
+
         records=records,
+
         absent_students=absent_students
     )
 
@@ -217,27 +265,36 @@ def students():
     if "admin_logged_in" not in session:
         return redirect("/")
 
+    db = get_db()
     cursor = db.cursor(dictionary=True)
 
-    cursor.execute(
-        """
-        SELECT
-            id,
-            roll_no,
-            name,
-            username,
-            department,
-            year
+    try:
 
-        FROM students
+        cursor.execute(
+            """
+            SELECT
+                id,
+                roll_no,
+                name,
+                username,
+                department,
+                year,
+                device_name,
+                device_id
 
-        ORDER BY roll_no ASC
-        """
-    )
+            FROM students
 
-    students_list = cursor.fetchall()
+            ORDER BY roll_no ASC
+            """
+        )
 
-    cursor.close()
+        students_list = cursor.fetchall()
+
+    finally:
+
+        cursor.close()
+        db.close()
+
 
     return render_template(
         "students.html",
@@ -271,49 +328,66 @@ def register_student():
         return redirect("/")
 
     roll_no = request.form["roll_no"]
+
     name = request.form["name"]
+
     username = request.form["username"]
+
     password = request.form["password"]
+
     department = request.form["department"]
+
     year = request.form["year"]
 
+
+    db = get_db()
     cursor = db.cursor()
 
-    cursor.execute(
-        """
-        INSERT INTO students
-        (
-            roll_no,
-            name,
-            username,
-            password,
-            department,
-            year
+    try:
+
+        cursor.execute(
+            """
+            INSERT INTO students
+            (
+                roll_no,
+                name,
+                username,
+                password,
+                department,
+                year,
+                device_name,
+                device_id
+            )
+
+            VALUES
+            (
+                %s,
+                %s,
+                %s,
+                %s,
+                %s,
+                %s,
+                NULL,
+                NULL
+            )
+            """,
+            (
+                roll_no,
+                name,
+                username,
+                password,
+                department,
+                year
+            )
         )
 
-        VALUES
-        (
-            %s,
-            %s,
-            %s,
-            %s,
-            %s,
-            %s
-        )
-        """,
-        (
-            roll_no,
-            name,
-            username,
-            password,
-            department,
-            year
-        )
-    )
+        db.commit()
 
-    db.commit()
+    finally:
 
-    cursor.close()
+        cursor.close()
+        db.close()
+
 
     return "Student Registered Successfully!"
 
@@ -338,26 +412,36 @@ def student():
 def student_login():
 
     username = request.form["username"]
+
     password = request.form["password"]
 
+
+    db = get_db()
     cursor = db.cursor(dictionary=True)
 
-    cursor.execute(
-        """
-        SELECT *
-        FROM students
-        WHERE username=%s
-        AND password=%s
-        """,
-        (
-            username,
-            password
+    try:
+
+        cursor.execute(
+            """
+            SELECT *
+            FROM students
+
+            WHERE username=%s
+            AND password=%s
+            """,
+            (
+                username,
+                password
+            )
         )
-    )
 
-    student_data = cursor.fetchone()
+        student_data = cursor.fetchone()
 
-    cursor.close()
+    finally:
+
+        cursor.close()
+        db.close()
+
 
     if student_data:
 
@@ -369,8 +453,10 @@ def student_login():
 
         return redirect("/scan_qr")
 
+
     return render_template(
         "student_login.html",
+
         error="Invalid Username or Password!"
     )
 
@@ -385,11 +471,6 @@ def generate_qr():
     if "admin_logged_in" not in session:
         return redirect("/")
 
-
-    # =================================================
-    # GET CURRENT INDIA TIME
-    # UTC → IST
-    # =================================================
 
     now = datetime.now(
         timezone.utc
@@ -444,7 +525,10 @@ def scan_qr():
 # MARK ATTENDANCE
 # =====================================================
 
-@app.route("/mark_attendance", methods=["POST"])
+@app.route(
+    "/mark_attendance",
+    methods=["POST"]
+)
 def mark_attendance():
 
     # =================================================
@@ -471,7 +555,7 @@ def mark_attendance():
         return {
             "success": False,
             "message": "Location data not received!"
-        }
+        }, 400
 
 
     latitude = data.get("latitude")
@@ -479,6 +563,11 @@ def mark_attendance():
     longitude = data.get("longitude")
 
     device_id = data.get("device_id")
+
+    device_name = data.get(
+        "device_name",
+        "Unknown Device"
+    )
 
 
     # =================================================
@@ -490,24 +579,50 @@ def mark_attendance():
         return {
             "success": False,
             "message": "Device ID not received!"
-        }
+        }, 400
+
+
+    # =================================================
+    # CLEAN DEVICE NAME
+    # =================================================
+
+    if not isinstance(
+        device_name,
+        str
+    ):
+
+        device_name = "Unknown Device"
+
+
+    device_name = device_name.strip()
+
+
+    if not device_name:
+
+        device_name = "Unknown Device"
+
+
+    # Limit device name length
+    device_name = device_name[:100]
 
 
     # =================================================
     # LOCATION CHECK
     # =================================================
 
-    if latitude is None or longitude is None:
+    if (
+        latitude is None
+        or longitude is None
+    ):
 
         return {
             "success": False,
             "message": "Location not received!"
-        }
+        }, 400
 
 
     # =================================================
     # CURRENT INDIA DATE AND TIME
-    # UTC → IST
     # =================================================
 
     now = datetime.now(
@@ -541,7 +656,6 @@ def mark_attendance():
         8,
         10
     )
-
 
     class_end = time(
         23,
@@ -624,11 +738,11 @@ def mark_attendance():
 
         distance = R * c
 
-
         distance = round(
             distance,
             2
         )
+
 
     except (
         TypeError,
@@ -639,7 +753,7 @@ def mark_attendance():
             "success": False,
             "message":
                 "Invalid location data!"
-        }
+        }, 400
 
 
     # =================================================
@@ -650,9 +764,12 @@ def mark_attendance():
 
         return {
             "success": False,
+
             "message":
                 "You are outside the college location!",
-            "distance": distance
+
+            "distance":
+                distance
         }
 
 
@@ -660,74 +777,212 @@ def mark_attendance():
     # STUDENT ID
     # =================================================
 
-    student_id = session["student_id"]
+    student_id = session[
+        "student_id"
+    ]
 
 
     # =================================================
-    # DATABASE CURSOR
+    # DATABASE CONNECTION
     # =================================================
 
-    cursor = db.cursor(
-        dictionary=True
-    )
+    db = None
+    cursor = None
 
 
-    # =================================================
-    # DEVICE BINDING
-    # =================================================
+    try:
 
-    cursor.execute(
-        """
-        SELECT
-            device_id
-        FROM students
-        WHERE id=%s
-        """,
-        (
-            student_id,
+        db = get_db()
+
+        cursor = db.cursor(
+            dictionary=True
         )
-    )
 
 
-    student_device = cursor.fetchone()
-
-
-    # =================================================
-    # STUDENT NOT FOUND
-    # =================================================
-
-    if not student_device:
-
-        cursor.close()
-
-        return {
-            "success": False,
-            "message":
-                "Student not found!"
-        }
-
-
-    registered_device = \
-        student_device["device_id"]
-
-
-    # =================================================
-    # FIRST DEVICE
-    # =================================================
-
-    if registered_device is None:
+        # =================================================
+        # GET STUDENT DEVICE DETAILS
+        # =================================================
 
         cursor.execute(
             """
-            UPDATE students
+            SELECT
+                device_id,
+                device_name
 
-            SET device_id=%s
+            FROM students
 
             WHERE id=%s
             """,
             (
-                device_id,
-                student_id
+                student_id,
+            )
+        )
+
+
+        student_device = cursor.fetchone()
+
+
+        # =================================================
+        # STUDENT NOT FOUND
+        # =================================================
+
+        if not student_device:
+
+            return {
+                "success": False,
+                "message":
+                    "Student not found!"
+            }
+
+
+        registered_device_id = (
+            student_device["device_id"]
+        )
+
+        registered_device_name = (
+            student_device["device_name"]
+        )
+
+
+        # =================================================
+        # FIRST DEVICE BINDING
+        # =================================================
+
+        if registered_device_id is None:
+
+            cursor.execute(
+                """
+                UPDATE students
+
+                SET
+                    device_id=%s,
+                    device_name=%s
+
+                WHERE id=%s
+                """,
+                (
+                    device_id,
+                    device_name,
+                    student_id
+                )
+            )
+
+            db.commit()
+
+
+        # =================================================
+        # SAME DEVICE
+        # =================================================
+
+        elif registered_device_id == device_id:
+
+            # Update device name if it changed
+            if (
+                device_name != "Unknown Device"
+                and device_name != registered_device_name
+            ):
+
+                cursor.execute(
+                    """
+                    UPDATE students
+
+                    SET device_name=%s
+
+                    WHERE id=%s
+                    """,
+                    (
+                        device_name,
+                        student_id
+                    )
+                )
+
+                db.commit()
+
+
+        # =================================================
+        # DIFFERENT DEVICE
+        # =================================================
+
+        else:
+
+            return {
+                "success": False,
+
+                "message":
+                    "This student is already registered with another device."
+            }
+
+
+        # =================================================
+        # CHECK ALREADY ATTENDED TODAY
+        # =================================================
+
+        cursor.execute(
+            """
+            SELECT *
+            FROM attendance
+
+            WHERE student_id=%s
+
+            AND attendance_date=%s
+            """,
+            (
+                student_id,
+                current_date
+            )
+        )
+
+
+        existing = cursor.fetchone()
+
+
+        # =================================================
+        # ALREADY ATTENDED
+        # =================================================
+
+        if existing:
+
+            return {
+                "success": False,
+
+                "message":
+                    "Attendance already marked today!",
+
+                "distance":
+                    distance,
+
+                "time":
+                    display_time
+            }
+
+
+        # =================================================
+        # INSERT ATTENDANCE
+        # =================================================
+
+        cursor.execute(
+            """
+            INSERT INTO attendance
+            (
+                student_id,
+                attendance_date,
+                attendance_time,
+                status
+            )
+
+            VALUES
+            (
+                %s,
+                %s,
+                %s,
+                %s
+            )
+            """,
+            (
+                student_id,
+                current_date,
+                current_time,
+                "Present"
             )
         )
 
@@ -735,110 +990,31 @@ def mark_attendance():
         db.commit()
 
 
-    # =================================================
-    # SAME DEVICE
-    # =================================================
+    except mysql.connector.Error as e:
 
-    elif registered_device == device_id:
+        if db:
+            db.rollback()
 
-        pass
-
-
-    # =================================================
-    # DIFFERENT DEVICE
-    # =================================================
-
-    else:
-
-        cursor.close()
-
-        return {
-            "success": False,
-            "message":
-                "This student is already registered with another device."
-        }
-
-
-    # =================================================
-    # CHECK ALREADY ATTENDED TODAY
-    # =================================================
-
-    cursor.execute(
-        """
-        SELECT *
-        FROM attendance
-
-        WHERE student_id=%s
-
-        AND attendance_date=%s
-        """,
-        (
-            student_id,
-            current_date
+        print(
+            "DATABASE ERROR:",
+            e
         )
-    )
-
-
-    existing = cursor.fetchone()
-
-
-    # =================================================
-    # ALREADY ATTENDED
-    # =================================================
-
-    if existing:
-
-        cursor.close()
 
         return {
             "success": False,
 
             "message":
-                "Attendance already marked today!",
-
-            "distance":
-                distance,
-
-            "time":
-                display_time
-        }
+                "Database error. Please try again."
+        }, 500
 
 
-    # =================================================
-    # INSERT ATTENDANCE
-    # =================================================
+    finally:
 
-    cursor.execute(
-        """
-        INSERT INTO attendance
-        (
-            student_id,
-            attendance_date,
-            attendance_time,
-            status
-        )
+        if cursor:
+            cursor.close()
 
-        VALUES
-        (
-            %s,
-            %s,
-            %s,
-            %s
-        )
-        """,
-        (
-            student_id,
-            current_date,
-            current_time,
-            "Present"
-        )
-    )
-
-
-    db.commit()
-
-
-    cursor.close()
+        if db:
+            db.close()
 
 
     # =================================================
@@ -859,7 +1035,10 @@ def mark_attendance():
             display_time,
 
         "distance":
-            distance
+            distance,
+
+        "device_name":
+            device_name
     }
 
 
@@ -874,51 +1053,59 @@ def attendance():
         return redirect("/")
 
 
+    db = get_db()
     cursor = db.cursor(
         dictionary=True
     )
 
 
-    cursor.execute(
-        """
-        SELECT
+    try:
 
-            attendance.id,
+        cursor.execute(
+            """
+            SELECT
 
-            students.roll_no,
+                attendance.id,
 
-            students.name,
+                students.roll_no,
 
-            students.department,
+                students.name,
 
-            students.year,
+                students.department,
 
-            attendance.attendance_date,
+                students.year,
 
-            attendance.attendance_time,
+                students.device_name,
 
-            attendance.status
+                students.device_id,
 
-        FROM attendance
+                attendance.attendance_date,
 
-        JOIN students
+                attendance.attendance_time,
 
-        ON attendance.student_id =
-           students.id
+                attendance.status
 
-        ORDER BY
+            FROM attendance
 
-            attendance.attendance_date DESC,
+            JOIN students
 
-            attendance.attendance_time DESC
-        """
-    )
+            ON attendance.student_id=students.id
+
+            ORDER BY
+
+                attendance.attendance_date DESC,
+
+                attendance.attendance_time DESC
+            """
+        )
 
 
-    records = cursor.fetchall()
+        records = cursor.fetchall()
 
+    finally:
 
-    cursor.close()
+        cursor.close()
+        db.close()
 
 
     return render_template(
