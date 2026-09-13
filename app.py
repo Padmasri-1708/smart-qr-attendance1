@@ -152,7 +152,7 @@ def dashboard():
 
         cursor.execute(
             """
-            SELECT COUNT(*) AS total
+            SELECT COUNT(DISTINCT student_id) AS total
             FROM attendance
             WHERE attendance_date=%s
             """,
@@ -649,30 +649,59 @@ def mark_attendance():
 
     # =================================================
     # ATTENDANCE TIME
-    # 8:10 AM TO 11:00 PM
+    #
+    # MORNING:
+    # 08:45 AM - 09:15 AM
+    #
+    # AFTERNOON:
+    # 12:45 PM - 01:15 PM
     # =================================================
 
-    class_start = time(
+    morning_start = time(
         8,
-        10
+        45
     )
 
-    class_end = time(
-        23,
-        0
+    morning_end = time(
+        9,
+        15
+    )
+
+    afternoon_start = time(
+        12,
+        45
+    )
+
+    afternoon_end = time(
+        13,
+        15
+    )
+
+
+    morning_slot = (
+        morning_start
+        <= current_time
+        <= morning_end
+    )
+
+
+    afternoon_slot = (
+        afternoon_start
+        <= current_time
+        <= afternoon_end
     )
 
 
     if not (
-        class_start
-        <= current_time
-        <= class_end
+        morning_slot
+        or afternoon_slot
     ):
 
         return {
             "success": False,
+
             "message":
-                "Attendance time has expired!"
+                "Attendance is allowed only from 8:45 AM to 9:15 AM or 12:45 PM to 1:15 PM!"
         }
 
 
@@ -680,11 +709,11 @@ def mark_attendance():
     # COLLEGE LOCATION
     # =================================================
 
-    COLLEGE_LAT = 12.554062
+    COLLEGE_LAT = 12.671705
 
-    COLLEGE_LON = 78.021858
+    COLLEGE_LON = 77.965916
 
-    ALLOWED_RADIUS = 400
+    ALLOWED_RADIUS = 300
 
 
     # =================================================
@@ -914,8 +943,33 @@ def mark_attendance():
 
 
         # =================================================
-        # CHECK ALREADY ATTENDED TODAY
+        # CHECK ALREADY ATTENDED IN CURRENT SLOT
         # =================================================
+
+        if morning_slot:
+
+            slot_start = time(
+                8,
+                45
+            )
+
+            slot_end = time(
+                9,
+                15
+            )
+
+        else:
+
+            slot_start = time(
+                12,
+                45
+            )
+
+            slot_end = time(
+                13,
+                15
+            )
+
 
         cursor.execute(
             """
@@ -925,10 +979,16 @@ def mark_attendance():
             WHERE student_id=%s
 
             AND attendance_date=%s
+
+            AND attendance_time >= %s
+
+            AND attendance_time <= %s
             """,
             (
                 student_id,
-                current_date
+                current_date,
+                slot_start,
+                slot_end
             )
         )
 
@@ -937,7 +997,7 @@ def mark_attendance():
 
 
         # =================================================
-        # ALREADY ATTENDED
+        # ALREADY ATTENDED CURRENT SLOT
         # =================================================
 
         if existing:
@@ -946,7 +1006,7 @@ def mark_attendance():
                 "success": False,
 
                 "message":
-                    "Attendance already marked today!",
+                    "Attendance already marked for this time slot!",
 
                 "distance":
                     distance,
