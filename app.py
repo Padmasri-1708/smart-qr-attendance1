@@ -684,7 +684,7 @@ def mark_attendance():
 
     COLLEGE_LON = 78.021858
 
-    ALLOWED_RADIUS = 200
+    ALLOWED_RADIUS = 400
 
 
     # =================================================
