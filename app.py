@@ -654,7 +654,7 @@ def mark_attendance():
     # 08:45 AM - 09:15 AM
     #
     # AFTERNOON:
-    # 12:45 PM - 01:15 PM
+    # 12:45 PM - 02:15 PM
     # =================================================
 
     morning_start = time(
@@ -673,7 +673,7 @@ def mark_attendance():
     )
 
     afternoon_end = time(
-        13,
+        14,
         15
     )
 
