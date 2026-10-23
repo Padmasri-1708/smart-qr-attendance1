@@ -668,12 +668,12 @@ def mark_attendance():
     )
 
     afternoon_start = time(
-        9,
+        21,
         20
     )
 
     afternoon_end = time(
-        10,
+        22,
         15
     )
 
