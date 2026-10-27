@@ -26,8 +26,8 @@
         <td>{{ record.id }}</td>
         <td>{{ record.roll_no }}</td>
         <td>{{ record.name }}</td>
-        <td>{{ record.attendance_date }}</td>
-        <td>{{ record.attendance_time }}</td>
+       <td>{{ record.attendance_date.strftime('%d-%m-%Y') }}</td>
+       <td>{{ record.attendance_time.strftime('%I:%M:%S %p') }}</td>
         <td>{{ record.status }}</td>
     </tr>
 
