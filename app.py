@@ -674,7 +674,7 @@ def mark_attendance():
 
     afternoon_end = time(
         13,
-        15
+        45
     )
 
 
@@ -1161,6 +1161,7 @@ def attendance():
 
 
         records = cursor.fetchall()
+        
 
     finally:
 
