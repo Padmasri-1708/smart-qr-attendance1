@@ -674,7 +674,7 @@ def mark_attendance():
 
     afternoon_end = time(
         13,
-        45
+        15
     )
 
 
